@@ -2,6 +2,8 @@ const router = require('express').Router()
 const check = require('express-validator').check
 const validationResult = require('express-validator').validationResult
 
+const { default: axios } = require('axios')
+const Currency = require('../models/Currency')
 const Request = require('../models/Request')
 const User = require('../models/User')
 
@@ -58,11 +60,96 @@ router.post(
             await moneyRequst.save()
 
             //TODO: socket message for request
-            res.json({
+            return res.status(200).json({
                 message: 'счет выставлен',
                 status: 'success',
                 receiverId: hasReceiver._id
             })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
+router.post(
+    '/transferBetweenCurrencyes',
+    async (req, res) => {
+        try {
+            console.log('transferBetweenCurrencyes with value ', req.body);
+
+            const { id, rate, sum } = req.body
+            let { recipient, donor } = req.body
+            // recipient = recipient.toLowerCase()
+            // donor = donor.toLowerCase()
+
+            const hasUser = await User.findOne({ _id: id })
+            if (hasUser === null) {
+                return res.status(400).json({
+                    message: 'пользователь не существует'
+                })
+            }
+
+            //TODO: проверка счетов
+
+
+            // axios.request({ TODO: запрашивать курс валют здесь
+            //     method: 'GET',
+            //     url: `https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${donor}/${recipient}.json`,
+            //     responseType: 'json',
+            //     reponseEncoding: 'utf8'
+            // })
+            //     .then(res => { console.log(res.data) })
+            //     .catch(e => console.log(e))
+
+            const hasRecipient = await Currency.findOne({
+                $and: [
+                    { ownerId: id },
+                    { type: recipient }
+                ]
+            })
+            const hasDonor = await Currency.findOne({
+                $and: [
+                    { ownerId: id },
+                    { type: donor }
+                ]
+            })
+            if (!(hasDonor && hasRecipient)) {
+                return res.status(400).json({
+                    message: 'счета отсутствуют'
+                })
+            }
+
+            const dif = sum * rate
+            hasRecipient.count += sum
+            hasDonor.count -= dif
+            if (hasDonor.count <= 0) {
+                return res.status(400).json({
+                    message: 'недостаточно средств на счету'
+                })
+            }
+            else {
+                await hasDonor.save()
+                await hasRecipient.save()
+            }
+            return res.status(200).json({
+                message: 'перевод выполнен'
+            })
+
+            // const moneyRequst = new Request({
+            //     sender: {
+            //         id: hasUser._id,
+            //         phoneNumber: hasUser.phoneNumber
+            //     },
+            //     receiver: {
+            //         id: hasReceiver._id,
+            //         phoneNumber: hasReceiver.phoneNumber
+            //     },
+            //     currency, sum, comment
+            // })
+            // await moneyRequst.save()
+
 
         } catch (e) {
             console.log(e);
