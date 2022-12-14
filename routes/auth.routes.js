@@ -4,6 +4,7 @@ const validationResult = require('express-validator').validationResult
 const bcrypt = require('bcrypt')
 
 const User = require('../models/User')
+const Currency = require('../models/Currency')
 
 router.post(
     '/registerNewUser',
@@ -36,9 +37,16 @@ router.post(
             const hash = await bcrypt.hash(password, 12)
 
             const user = new User({ phoneNumber, password: hash })
-            await user.save()
+            const RUBcurrency = new Currency({ ownerId: user._id, type: 'RUB' },)
+            const USDcurrency = new Currency({ ownerId: user._id, type: 'USD' },)
 
-            res.json({
+            if (user && RUBcurrency && USDcurrency) {
+                await RUBcurrency.save()
+                await USDcurrency.save()
+                await user.save()
+            } else return res.status(500).json({ message: 'что-то пошло не так' })
+
+            return res.status(200).json({
                 idUser: user._id,
                 phoneNumber: user.phoneNumber,
                 message: 'пользлватель создан'
