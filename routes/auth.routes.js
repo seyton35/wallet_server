@@ -47,7 +47,7 @@ router.post(
             } else return res.status(500).json({ message: 'что-то пошло не так' })
 
             return res.status(200).json({
-                idUser: user._id,
+                id: user._id,
                 phoneNumber: user.phoneNumber,
                 message: 'пользлватель создан'
             })
