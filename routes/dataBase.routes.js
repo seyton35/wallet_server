@@ -10,7 +10,12 @@ router.post(
         try {
             const { idUser } = req.body
 
-            const issuedInvoicesArr = await Request.find({ "receiver.id": idUser })
+            const issuedInvoicesArr = await Request.find({
+                $and:[
+                    { "receiver.id": idUser },
+                    {status:'waiting'}
+                ]
+            })
             if (!issuedInvoicesArr) {
                 return res.status(204).json({
                     message: 'неоплаченных счетов нет'

@@ -2,7 +2,6 @@ const router = require('express').Router()
 const check = require('express-validator').check
 const validationResult = require('express-validator').validationResult
 
-const { default: axios } = require('axios')
 const Currency = require('../models/Currency')
 const Request = require('../models/Request')
 const User = require('../models/User')
@@ -154,6 +153,47 @@ router.post(
         } catch (e) {
             console.log(e);
             res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
+router.post(
+    '/billPayment',
+    async (req, res) => {
+        try {
+            console.log('billPayment with ', req.body);
+            const { idUser, idBill, currency: currencyType } = req.body
+            const bill = await Request.findById(idBill)
+
+            if (
+                bill == null ||
+                bill.receiver.id !== idUser
+            ) return res.status(404).json({
+                message: 'счет не найден'
+            })
+
+            const currency = await Currency.findOne({ ownerId: idUser })
+            if (currency == null) return res.status(500).json({
+                message: 'что-то пошло не так'
+            })
+
+            if (currency.count < bill.sum) return res.status(500).json({
+                message: 'недостаточно средств на счету'
+            })
+
+            currency.count -= bill.sum
+            bill.status = 'paid' 
+            bill.paymentDate = Date.now()
+
+            await currency.save()
+            await bill.save()
+
+            return res.status(200).json({
+                message: 'счет оплачен'
+            })
+
+        } catch (e) {
+            console.log(e.message);
         }
     }
 )
