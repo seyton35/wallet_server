@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 
 const Request = new mongoose.Schema({
     status: { type: String, required: true, default: 'waiting' },
+    type:{ type: String, required: true },
     sum: { type: Number, required: true },
     currency: { type: String, required: true },
     sender: {
@@ -13,7 +14,7 @@ const Request = new mongoose.Schema({
         phoneNumber: { type: Number, required: true },
     },
     registerDate: { type: Date, default: Date.now, required: true },
-    paymentDate: { type: Date, default: null, required: true },
+    // paymentDate: { type: Date, default: null, required: true },
     comment: { type: String, },
 })
 

@@ -46,6 +46,7 @@ router.post(
             }
 
             const moneyRequst = new Request({
+                type: 'Перевод на Wallet',
                 sender: {
                     id: hasSender._id,
                     phoneNumber: hasSender.phoneNumber
@@ -182,7 +183,7 @@ router.post(
             })
 
             currency.count -= bill.sum
-            bill.status = 'paid' 
+            bill.status = 'paid'
             bill.paymentDate = Date.now()
 
             await currency.save()
@@ -190,6 +191,37 @@ router.post(
 
             return res.status(200).json({
                 message: 'счет оплачен'
+            })
+
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+)
+
+router.post(
+    '/rejectBillPayment',
+    async (req, res) => {
+        try {
+            console.log('rejectBillPayment with ', req.body);
+            const { idUser, idBill } = req.body
+
+            const bill = await Request.findById(idBill)
+
+            if (
+                bill == null ||
+                bill.receiver.id !== idUser
+            ) return res.status(404).json({
+                message: 'счет не найден'
+            })
+
+            bill.status = 'rejected' 
+            bill.paymentDate = Date.now()
+
+            await bill.save()
+
+            return res.status(200).json({
+                message: 'счет отклонен'
             })
 
         } catch (e) {
