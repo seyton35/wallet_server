@@ -12,6 +12,7 @@ const mongoose = require('mongoose')
 const auth = require('./routes/auth.routes')
 const transaction = require('./routes/transaction.routes')
 const dataBase = require('./routes/dataBase.routes')
+const admin = require('./routes/admin.routes')
 
 
 const PORT = config.get('port') || 5000
@@ -23,6 +24,7 @@ app.use(express.json())
 app.use('/api/auth', auth)
 app.use('/api/transaction', transaction)
 app.use('/api/dataBase', dataBase)
+app.use('/api/admin', admin)
 
 app.post('/', (req, res) => {
     try {

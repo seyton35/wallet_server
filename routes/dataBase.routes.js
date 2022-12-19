@@ -4,26 +4,27 @@ const Currency = require('../models/Currency');
 const Request = require('../models/Request')
 
 router.post(
-    '/IssuedInvoices',
+    '/fetchActiveBills',
     async (req, res) => {
         console.log('fetching invoices with :', req.body);
         try {
             const { idUser } = req.body
 
-            const issuedInvoicesArr = await Request.find({
-                $and:[
+
+            const activeBills = await Request.find({
+                $and: [
                     { "receiver.id": idUser },
-                    {status:'waiting'}
+                    { status: 'active' }
                 ]
             })
-            if (!issuedInvoicesArr) {
+            if (!activeBills) {
                 return res.status(204).json({
                     message: 'неоплаченных счетов нет'
                 })
             }
             return res.json({
                 message: 'success',
-                issuedInvoicesArr
+                activeBills
             })
 
         } catch (e) {
@@ -32,6 +33,37 @@ router.post(
         }
     }
 )
+
+router.post(
+    '/fetchClosedBills',
+    async (req, res) => {
+        console.log('feychClosedBills with :', req.body);
+        try {
+            const { idUser } = req.body
+
+            const closedBills = await Request.find({
+                $and: [
+                    {
+                        $or: [
+                            { "sender.id": idUser },
+                            { "receiver.id": idUser },
+                        ]
+                    },
+                    { status: { $ne: 'active' } }
+                ]
+            })
+            return res.json({
+                message: 'success',
+                closedBills
+            })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
 
 router.post(
     '/fetchAllCurrencyes',

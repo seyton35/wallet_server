@@ -7,7 +7,7 @@ const Request = require('../models/Request')
 const User = require('../models/User')
 
 router.post(
-    '/ClientMoneyRequest',
+    '/clientMoneyRequest',
     [
         check('receiver', "Некоректный номер телефона").isMobilePhone(),
     ],
@@ -49,19 +49,23 @@ router.post(
                 type: 'Перевод на Wallet',
                 sender: {
                     id: hasSender._id,
-                    phoneNumber: hasSender.phoneNumber
+                    number: hasSender.phoneNumber,
+                    sum,
+                    currency
                 },
                 receiver: {
                     id: hasReceiver._id,
-                    phoneNumber: hasReceiver.phoneNumber
+                    number: hasReceiver.phoneNumber
                 },
-                currency, sum, comment
+                comment
             })
+
+
             await moneyRequst.save()
 
             //TODO: socket message for request
             return res.status(200).json({
-                message: 'счет выставлен',
+                message: 'счет успешно выставлен',
                 status: 'success',
                 receiverId: hasReceiver._id
             })
@@ -74,15 +78,13 @@ router.post(
 )
 
 router.post(
-    '/transferBetweenCurrencyes',
+    '/currencyConversion',
     async (req, res) => {
         try {
-            console.log('transferBetweenCurrencyes with value ', req.body);
+            console.log('currencyСonversion with value ', req.body);
 
             const { id, rate, sum } = req.body
             let { recipient, donor } = req.body
-            // recipient = recipient.toLowerCase()
-            // donor = donor.toLowerCase()
 
             const hasUser = await User.findOne({ _id: id })
             if (hasUser === null) {
@@ -90,18 +92,6 @@ router.post(
                     message: 'пользователь не существует'
                 })
             }
-
-            //TODO: проверка счетов
-
-
-            // axios.request({ TODO: запрашивать курс валют здесь
-            //     method: 'GET',
-            //     url: `https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${donor}/${recipient}.json`,
-            //     responseType: 'json',
-            //     reponseEncoding: 'utf8'
-            // })
-            //     .then(res => { console.log(res.data) })
-            //     .catch(e => console.log(e))
 
             const hasRecipient = await Currency.findOne({
                 $and: [
@@ -132,23 +122,29 @@ router.post(
             else {
                 await hasDonor.save()
                 await hasRecipient.save()
+
+                const moneyRequst = new Request({
+                    type: 'Wallet (конвертация)',
+                    sender: {
+                        id: hasUser._id,
+                        number: hasUser.phoneNumber,
+                        currency: recipient,
+                        sum,
+                    },
+                    receiver: {
+                        id: hasUser._id,
+                        number: hasUser.phoneNumber,
+                        sum: dif,
+                        currency: donor,
+                    },
+                    status: 'success',
+                    paymentDate: Date.now()
+                })
+                await moneyRequst.save()
             }
             return res.status(200).json({
-                message: 'перевод выполнен'
+                message: 'перевод успешно выполнен'
             })
-
-            // const moneyRequst = new Request({
-            //     sender: {
-            //         id: hasUser._id,
-            //         phoneNumber: hasUser.phoneNumber
-            //     },
-            //     receiver: {
-            //         id: hasReceiver._id,
-            //         phoneNumber: hasReceiver.phoneNumber
-            //     },
-            //     currency, sum, comment
-            // })
-            // await moneyRequst.save()
 
 
         } catch (e) {
@@ -163,7 +159,8 @@ router.post(
     async (req, res) => {
         try {
             console.log('billPayment with ', req.body);
-            const { idUser, idBill, currency: currencyType } = req.body
+            const { idUser, idBill, currencyType, rate } = req.body
+
             const bill = await Request.findById(idBill)
 
             if (
@@ -173,24 +170,39 @@ router.post(
                 message: 'счет не найден'
             })
 
-            const currency = await Currency.findOne({ ownerId: idUser })
-            if (currency == null) return res.status(500).json({
-                message: 'что-то пошло не так'
+            const currency = await Currency.findOne({
+                $and: [
+                    { ownerId: idUser },
+                    { type: currencyType }
+                ]
             })
+            if (currency == null) {
+                return res.status(500).json({
+                    message: 'что-то пошло не так'
+                })
+            }
 
-            if (currency.count < bill.sum) return res.status(500).json({
+            if (currency.count < bill.sender.sum) return res.status(500).json({
                 message: 'недостаточно средств на счету'
             })
 
-            currency.count -= bill.sum
-            bill.status = 'paid'
+            if (bill.sender.currency == currencyType) {
+                currency.count -= bill.sender.sum
+                bill.receiver.sum = bill.sender.sum
+            } else {
+                const dif = bill.sender.sum * rate
+                bill.receiver.sum = dif
+            }
+
+            bill.status = 'success'
+            bill.receiver.currency = currencyType
             bill.paymentDate = Date.now()
 
             await currency.save()
             await bill.save()
 
             return res.status(200).json({
-                message: 'счет оплачен'
+                message: 'счет успешно оплачен'
             })
 
         } catch (e) {
@@ -215,7 +227,7 @@ router.post(
                 message: 'счет не найден'
             })
 
-            bill.status = 'rejected' 
+            bill.status = 'rejected'
             bill.paymentDate = Date.now()
 
             await bill.save()
