@@ -166,8 +166,13 @@ router.post(
             if (
                 bill == null ||
                 bill.receiver.id !== idUser
-            ) return res.status(404).json({
-                message: 'счет не найден'
+            )
+                return res.status(404).json({
+                    message: 'счет не найден'
+                })
+
+            if (bill.status != 'active') return res.status(202).json({
+                message: 'счет уже оплачен'
             })
 
             const currency = await Currency.findOne({
