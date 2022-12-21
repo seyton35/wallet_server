@@ -187,9 +187,13 @@ router.post(
                 })
             }
 
-            if (currency.count < bill.sender.sum) return res.status(500).json({
-                message: 'недостаточно средств на счету'
-            })
+            if (currency.type == bill.sender.currency ) {
+                if (currency.count < bill.sender.sum) return res.status(500).json({
+                    message: 'недостаточно средств на счету'
+                })
+            } else if (currency.count < (bill.sender.sum * rate)) {
+
+            }
 
             if (bill.sender.currency == currencyType) {
                 currency.count -= bill.sender.sum

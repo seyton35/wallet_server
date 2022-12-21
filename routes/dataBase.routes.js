@@ -16,7 +16,7 @@ router.post(
                     { "receiver.id": idUser },
                     { status: 'active' }
                 ]
-            })
+            }).sort({ registerDate: -1 })
             if (!activeBills) {
                 return res.status(204).json({
                     message: 'неоплаченных счетов нет'
@@ -51,7 +51,7 @@ router.post(
                     },
                     { status: { $ne: 'active' } }
                 ]
-            })
+            }).sort({ paymentDate: -1 })
             return res.json({
                 message: 'success',
                 closedBills
