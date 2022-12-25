@@ -1,4 +1,6 @@
 const Request = require("../models/Request")
+const User = require("../models/User")
+const Currency = require("../models/Currency")
 
 const router = require("express").Router()
 
@@ -6,6 +8,26 @@ router.post(
     '/deleteAllRequests',
     async (req, res) => {
         const result = await Request.deleteMany()
+        res.json({
+            message: result
+        })
+    }
+)
+
+router.post(
+    '/deleteAllUsers',
+    async (req, res) => {
+        const result = await User.deleteMany()
+        res.json({
+            message: result
+        })
+    }
+)
+
+router.post(
+    '/deleteAllCurrencyes',
+    async (req, res) => {
+        const result = await Currency.deleteMany()
         res.json({
             message: result
         })

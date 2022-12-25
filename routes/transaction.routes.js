@@ -221,10 +221,10 @@ router.post(
 )
 
 router.post(
-    '/rejectBillPayment',
+    '/rejectBill',
     async (req, res) => {
         try {
-            console.log('rejectBillPayment with ', req.body);
+            console.log('rejectBill with ', req.body);
             const { idUser, idBill } = req.body
 
             const bill = await Request.findById(idBill)

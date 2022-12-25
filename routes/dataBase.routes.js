@@ -64,6 +64,43 @@ router.post(
     }
 )
 
+router.post(
+    '/fetchBillsByCategory',
+    async (req, res) => {
+        console.log('fetchBillsByCategory with :', req.body);
+        try {
+            const { idUser, category } = req.body
+
+            let billsByCategory
+
+            if (category == 'received') {
+                billsByCategory = await Request.find({
+                    $and: [
+                        { 'receiver.id': idUser },
+                        { type: { $ne: 'Wallet (конвертация)' } }
+                    ]
+                }).sort({ paymentDate: -1 })
+            }
+            else {
+                billsByCategory = await Request.find({
+                    $and: [
+                        { 'sender.id': idUser },
+                        { type: { $ne: 'Wallet (конвертация)' } }
+                    ]
+                }).sort({ paymentDate: -1 })
+            }
+
+            return res.json({
+                message: 'success',
+                billsByCategory
+            })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
 
 router.post(
     '/fetchAllCurrencyes',
