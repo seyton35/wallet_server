@@ -69,25 +69,29 @@ router.post(
     async (req, res) => {
         console.log('fetchBillsByCategory with :', req.body);
         try {
-            const { idUser, category } = req.body
+            const { idUser, category, timeRange } = req.body
 
+            const endDate = new Date(timeRange.date2).setHours(23, 59, 59)
+            const beginDate = new Date(timeRange.date1).setHours(00, 00, 00)
             let billsByCategory
 
             if (category == 'received') {
                 billsByCategory = await Request.find({
                     $and: [
                         { 'receiver.id': idUser },
-                        { type: { $ne: 'Wallet (конвертация)' } }
+                        { type: { $ne: 'Wallet (конвертация)' } },
+                        { registerDate: { $gte: beginDate, $lte: endDate } }
                     ]
-                }).sort({ paymentDate: -1 })
+                }).sort({ registerDate: -1 })
             }
             else {
                 billsByCategory = await Request.find({
                     $and: [
                         { 'sender.id': idUser },
-                        { type: { $ne: 'Wallet (конвертация)' } }
+                        { type: { $ne: 'Wallet (конвертация)' } },
+                        { registerDate: { $gte: beginDate, $lte: endDate } }
                     ]
-                }).sort({ paymentDate: -1 })
+                }).sort({ registerDate: -1 })
             }
 
             return res.json({
