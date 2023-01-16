@@ -15,6 +15,8 @@ router.post(
         try {
             console.log('ClientMoneyRequest with value ', req.body);
             const { errors } = validationResult(req)
+            const { Transaction } = req.firestore
+
             if (errors.length) {
                 return res.status(400).json({
                     message: errors[0].msg,
@@ -45,30 +47,31 @@ router.post(
                 })
             }
 
-            const moneyRequst = new Request({
+            const request = {
+                registerDate: Date.now(),
                 type: 'Перевод на Wallet',
                 sender: {
-                    id: hasSender._id,
+                    id: hasSender._id.toString(),
                     number: hasSender.phoneNumber,
                     sum,
                     currency
                 },
                 receiver: {
-                    id: hasReceiver._id,
+                    id: hasReceiver._id.toString(),
                     number: hasReceiver.phoneNumber
                 },
-                comment
-            })
+            }
+            if (comment) request.comment = comment
 
+            Transaction.add(request)
+                .then(docRef => console.log(docRef.id))
+                .catch(e => console.log(e.message))
 
-            await moneyRequst.save()
-
-            //TODO: socket message for request
-            return res.status(200).json({
-                message: 'счет успешно выставлен',
-                status: 'success',
-                receiverId: hasReceiver._id
-            })
+            // TODO: add pushNotification
+            // return res.status(200).json({
+            //     message: 'счет успешно выставлен',
+            //     status: 'success',
+            // })
 
         } catch (e) {
             console.log(e);
@@ -187,7 +190,7 @@ router.post(
                 })
             }
 
-            if (currency.type == bill.sender.currency ) {
+            if (currency.type == bill.sender.currency) {
                 if (currency.count < bill.sender.sum) return res.status(500).json({
                     message: 'недостаточно средств на счету'
                 })

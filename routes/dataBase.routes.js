@@ -3,13 +3,21 @@ const router = require('express').Router()
 const Currency = require('../models/Currency');
 const Request = require('../models/Request')
 
+
 router.post(
     '/fetchActiveBills',
     async (req, res) => {
-        console.log('fetching invoices with :', req.body);
+        console.log('fetchActiveBills with :', req.body);
         try {
             const { idUser } = req.body
 
+
+            // const { Transaction } = req.firestore
+            // Transaction.get()
+            //     .then((querySnapshot) => querySnapshot.forEach(document => {
+            //         console.log(document.data());
+            //     }))
+            //     .catch(e => console.log(e.message))
 
             const activeBills = await Request.find({
                 $and: [
@@ -111,9 +119,22 @@ router.post(
     async (req, res) => {
         console.log('fetchAllCurrencyes with :', req.body);
         try {
+            const { CurrencyAccounts } = req.firestore
             const { idUser } = req.body
 
-            const currencyesArr = await Currency.find({ ownerId: idUser })
+            const currencyesArr = []
+
+            await CurrencyAccounts.where('ownerId', '==', idUser).get()
+                .then(snapshot => {
+                    snapshot.forEach(account => {
+                        currencyesArr.push({
+                            ...account.data(),
+                            _id: account.id
+                        })
+                    });
+                })
+
+            console.log(currencyesArr);
 
             return res.status(200).json({
                 message: 'success',

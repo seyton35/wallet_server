@@ -3,9 +3,6 @@ const check = require('express-validator').check
 const validationResult = require('express-validator').validationResult
 const bcrypt = require('bcrypt')
 
-const User = require('../models/User')
-const Currency = require('../models/Currency')
-
 router.post(
     '/registerNewUser',
     [
@@ -14,6 +11,9 @@ router.post(
     async (req, res) => {
         try {
             console.log('reg with value ', req.body);
+
+            const { Users, CurrencyAccounts } = req.firestore
+
             const errors = validationResult(req)
             if (!errors.isEmpty()) {
                 return res.status(400).json({
@@ -27,30 +27,40 @@ router.post(
             const regx = /\D/
             phoneNumber = Number(phoneNumber.replace(regx, ''))
 
-            const candidate = await User.findOne({ phoneNumber })
-            if (candidate) {
+            const candidatList = await Users.where('phoneNumber', '==', phoneNumber).get()
+
+            if (candidatList.size != 0) {
                 return res.status(400).json({
                     error: 'этот номер телефона уже занят',
                     message: 'этот номер телефона уже занят'
                 })
             }
+
             const hash = await bcrypt.hash(password, 12)
-
-            const user = new User({ phoneNumber, password: hash })
-            const RUBcurrency = new Currency({ ownerId: user._id, type: 'RUB' },)
-            const USDcurrency = new Currency({ ownerId: user._id, type: 'USD' },)
-
-            if (user && RUBcurrency && USDcurrency) {
-                await RUBcurrency.save()
-                await USDcurrency.save()
-                await user.save()
-            } else return res.status(500).json({ message: 'что-то пошло не так' })
-
-            return res.status(200).json({
-                id: user._id,
-                phoneNumber: user.phoneNumber,
-                message: 'пользлватель создан'
+            const user = await Users.add({
+                phoneNumber,
+                password: hash
             })
+            const accountRub = await CurrencyAccounts.add({
+                ownerId: user.id,
+                type: 'RUB',
+                count: 0,
+                registerDate: Date.now(),
+            })
+            const accountUsd = await CurrencyAccounts.add({
+                ownerId: user.id,
+                type: 'USD',
+                count: 0,
+                registerDate: Date.now()
+            })
+
+            if (user.id && accountRub.id && accountUsd.id) {
+                return res.status(200).json({
+                    id: user.id,
+                    phoneNumber,
+                    message: 'пользлватель создан'
+                })
+            } else return res.status(500).json({ message: 'что-то пошло не так' })
 
         } catch (e) {
             console.log(e);
@@ -77,34 +87,42 @@ router.post(
                 })
             }
 
+            const { Users } = req.firestore
+
             const { password } = req.body
             let { phoneNumber } = req.body
             const regx = /\D/
             phoneNumber = Number(phoneNumber.replace(regx, ''))
 
-            const user = await User.findOne({ phoneNumber })
-
-            if (!user) {
-                return res.status(400).json({
-                    error: 'пользователь не существует',
-                    message: 'пользователь не существует'
-                })
-            }
-
-            bcrypt.compare(password, user.password)
-                .then(match => {
-                    if (match) {
-                        return res.status(200).json({
-                            id: user._id,
-                            phoneNumber: user.phoneNumber,
-                            message: 'вход выполнен'
-                        })
-                    } else {
+            Users.where('phoneNumber', '==', phoneNumber).get()
+                .then(snapshot => {
+                    if (snapshot.size == 0) {
                         return res.status(400).json({
-                            error: 'не правильный номер телефона или пароль',
-                            message: 'не правильный номер телефона или пароль'
+                            error: 'пользователь не существует',
+                            message: 'пользователь не существует'
                         })
                     }
+                    else {
+                        snapshot.forEach(rawUser => {
+                            const user = rawUser.data()
+                            bcrypt.compare(password, user.password)
+                                .then(match => {
+                                    if (match) {
+                                        return res.status(200).json({
+                                            id: rawUser.id,
+                                            phoneNumber: user.phoneNumber,
+                                            message: 'вход выполнен'
+                                        })
+                                    } else {
+                                        return res.status(400).json({
+                                            error: 'не правильный номер телефона или пароль',
+                                            message: 'не правильный номер телефона или пароль'
+                                        })
+                                    }
+                                })
+                        });
+                    }
+
                 })
 
         } catch (e) {
