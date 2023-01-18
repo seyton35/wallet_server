@@ -1,6 +1,4 @@
 {
     "port": 8000,
-    "DB_URL": "mongodb+srv://root:WV1N2HAoRY2KbjEC@cluster0.e0b2e.mongodb.net/?retryWrites=true&w=majority",
     "jwtSecret":"Leeroooy Jenkins"
-    
 }

@@ -49,7 +49,7 @@ router.post(
             })
             const accountUsd = await CurrencyAccounts.add({
                 ownerId: user.id,
-                type: 'USD',
+                type: 'KZT',
                 count: 0,
                 registerDate: Date.now()
             })

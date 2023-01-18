@@ -9,7 +9,6 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./config/firebase_key/serviceAccountKey.json')
 
 const config = require('config')
-const mongoose = require('mongoose')
 
 const auth = require('./routes/auth.routes')
 const transaction = require('./routes/transaction.routes')
@@ -87,8 +86,6 @@ async function start() {
         //     })
 
         // })
-
-        await mongoose.connect(config.get('DB_URL'))
 
         server.listen(PORT, () => console.log(`App has been started on port ${PORT}`))
     } catch (e) {

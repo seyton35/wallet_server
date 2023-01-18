@@ -1,4 +1,4 @@
-const Request = require("../models/Request");
+// const Request = require("../models/Request");
 
 function SocketReducer(socket, data, cb) {
     switch (data.way) {
@@ -26,7 +26,7 @@ function CHECK_YOUR_ISSUES(socket, data) {
     socket.to(data.id).emit('/', data)
 }
 
-async function deleteAllIssues() {
-    console.log('Request.deleteMany');
-    await Request.deleteMany({})
-}
+// async function deleteAllIssues() {
+//     console.log('Request.deleteMany');
+//     await Request.deleteMany({})
+// }

@@ -1,7 +1,6 @@
 const router = require('express').Router()
 
-const Currency = require('../models/Currency');
-const Request = require('../models/Request')
+const { compareDateDescending } = require('../middleware/sorter');
 
 
 router.post(
@@ -11,29 +10,35 @@ router.post(
         try {
             const { idUser } = req.body
 
+            const { Transaction } = req.firestore
 
-            // const { Transaction } = req.firestore
-            // Transaction.get()
-            //     .then((querySnapshot) => querySnapshot.forEach(document => {
-            //         console.log(document.data());
-            //     }))
-            //     .catch(e => console.log(e.message))
+            const activeBills = []
+            await Transaction
+                .where('status', '==', 'active')
+                .where('receiver.id', '==', idUser)
+                .orderBy("registerDate", "desc")
+                .get()
 
-            const activeBills = await Request.find({
-                $and: [
-                    { "receiver.id": idUser },
-                    { status: 'active' }
-                ]
-            }).sort({ registerDate: -1 })
-            if (!activeBills) {
+                .then(activeBillsRaw => {
+                    activeBillsRaw.forEach(document => {
+                        activeBills.push({
+                            ...document.data(),
+                            _id: document.id
+                        })
+                    })
+                })
+                .catch(e => console.log(e.message))
+
+            if (activeBills.length == 0) {
                 return res.status(204).json({
                     message: 'неоплаченных счетов нет'
                 })
+            } else {
+                return res.status(200).json({
+                    message: 'success',
+                    activeBills
+                })
             }
-            return res.json({
-                message: 'success',
-                activeBills
-            })
 
         } catch (e) {
             console.log(e);
@@ -45,21 +50,51 @@ router.post(
 router.post(
     '/fetchClosedBills',
     async (req, res) => {
-        console.log('feychClosedBills with :', req.body);
+        console.log('fetchClosedBills with :', req.body);
         try {
             const { idUser } = req.body
+            const { Transaction } = req.firestore
 
-            const closedBills = await Request.find({
-                $and: [
-                    {
-                        $or: [
-                            { "sender.id": idUser },
-                            { "receiver.id": idUser },
-                        ]
-                    },
-                    { status: { $ne: 'active' } }
-                ]
-            }).sort({ paymentDate: -1 })
+            const closedBills = []
+
+            await Transaction
+                .where('status', '!=', 'active')
+                .where('sender.id', '==', idUser)
+                .get()
+
+                .then(closedBillsRaw => {
+                    closedBillsRaw.forEach(document => {
+                        closedBills.push({
+                            ...document.data(),
+                            _id: document.id
+                        })
+                    })
+                })
+                .catch(e => {
+                    console.log(e.message)
+                    return res.status(500).json({ message: 'что-то пошло не так' })
+                })
+
+            await Transaction
+                .where('status', '!=', 'active')
+                .where('receiver.id', '==', idUser)
+                .get()
+
+                .then(closedBillsRaw => {
+                    closedBillsRaw.forEach(document => {
+                        closedBills.push({
+                            ...document.data(),
+                            _id: document.id
+                        })
+                    })
+                })
+                .catch(e => {
+                    console.log(e.message)
+                    return res.status(500).json({ message: 'что-то пошло не так' })
+                })
+
+            closedBills.sort(compareDateDescending)
+
             return res.json({
                 message: 'success',
                 closedBills
@@ -78,30 +113,55 @@ router.post(
         console.log('fetchBillsByCategory with :', req.body);
         try {
             const { idUser, category, timeRange } = req.body
+            const { Transaction } = req.firestore
 
             const endDate = new Date(timeRange.date2).setHours(23, 59, 59)
             const beginDate = new Date(timeRange.date1).setHours(00, 00, 00)
-            let billsByCategory
+
+            const billsByCategory = []
 
             if (category == 'received') {
-                billsByCategory = await Request.find({
-                    $and: [
-                        { 'receiver.id': idUser },
-                        { type: { $ne: 'Wallet (конвертация)' } },
-                        { registerDate: { $gte: beginDate, $lte: endDate } }
-                    ]
-                }).sort({ registerDate: -1 })
+                await Transaction
+                    .where('receiver.id', '==', idUser)
+                    .where('registerDate', '>=', beginDate)
+                    .where('registerDate', '<=', endDate)
+                    .orderBy('registerDate', 'Desc')
+                    .get()
+
+                    .then(billsByCategoryRaw => {
+                        billsByCategoryRaw.forEach(billRef => {
+                            const bill = {
+                                ...billRef.data(),
+                                _id: billRef.id
+                            }
+                            if (bill.type !== 'Wallet (конвертация)') {
+                                billsByCategory.push(bill)
+                            }
+                        });
+                    })
+                    .catch(e => console.log(e.message))
             }
             else {
-                billsByCategory = await Request.find({
-                    $and: [
-                        { 'sender.id': idUser },
-                        { type: { $ne: 'Wallet (конвертация)' } },
-                        { registerDate: { $gte: beginDate, $lte: endDate } }
-                    ]
-                }).sort({ registerDate: -1 })
-            }
+                await Transaction
+                    .where('sender.id', '==', idUser)
+                    .where('registerDate', '>=', beginDate)
+                    .where('registerDate', '<=', endDate)
+                    .orderBy('registerDate', 'Desc')
+                    .get()
 
+                    .then(billsByCategoryRaw => {
+                        billsByCategoryRaw.forEach(billRef => {
+                            const bill = {
+                                ...billRef.data(),
+                                _id: billRef.id
+                            }
+                            if (bill.type !== 'Wallet (конвертация)') {
+                                billsByCategory.push(bill)
+                            }
+                        });
+                    })
+                    .catch(e => console.log(e.message))
+            }
             return res.json({
                 message: 'success',
                 billsByCategory
@@ -133,8 +193,6 @@ router.post(
                         })
                     });
                 })
-
-            console.log(currencyesArr);
 
             return res.status(200).json({
                 message: 'success',

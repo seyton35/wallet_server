@@ -2,9 +2,6 @@ const router = require('express').Router()
 const check = require('express-validator').check
 const validationResult = require('express-validator').validationResult
 
-const Currency = require('../models/Currency')
-const Request = require('../models/Request')
-const User = require('../models/User')
 
 router.post(
     '/clientMoneyRequest',
@@ -15,7 +12,7 @@ router.post(
         try {
             console.log('ClientMoneyRequest with value ', req.body);
             const { errors } = validationResult(req)
-            const { Transaction } = req.firestore
+            const { Transaction, Users } = req.firestore
 
             if (errors.length) {
                 return res.status(400).json({
@@ -23,55 +20,69 @@ router.post(
                 })
             }
 
-            const { sender, currency, sum, comment } = req.body
-            let { receiver } = req.body
+            const { sender: senderNumber, currency, comment } = req.body
+            let { receiver: receiverNumber, sum } = req.body
+            sum = Number(sum)
             const regx = /\D/
-            receiver = Number(receiver.replace(regx, ''))
+            receiverNumber = Number(receiverNumber.replace(regx, ''))
 
-            if (receiver == sender) {
+            if (receiverNumber == senderNumber) {
                 return res.status(400).json({
                     message: 'это ваш номер'
                 })
             }
 
-            const hasSender = await User.findOne({ phoneNumber: sender })
-            if (hasSender === null) {
+            let sender, receiver = null
+
+            await Users
+                .where('phoneNumber', '==', senderNumber)
+                .get()
+
+                .then(snapshot => snapshot.forEach(document => sender = {
+                    ...document.data(),
+                    _id: document.id
+                }))
+            await Users
+                .where('phoneNumber', '==', receiverNumber)
+                .get()
+
+                .then(snapshot => snapshot.forEach(document => receiver = {
+                    ...document.data(),
+                    _id: document.id
+                }))
+
+            if (!(receiver && sender)) {
                 return res.status(400).json({
-                    message: 'пользователя с таким номером не существует'
-                })
-            }
-            const hasReceiver = await User.findOne({ phoneNumber: receiver })
-            if (hasReceiver === null) {
-                return res.status(400).json({
-                    message: 'пользователя с таким номером не существует'
+                    message: 'пользователь с таким номером не существует'
                 })
             }
 
             const request = {
                 registerDate: Date.now(),
                 type: 'Перевод на Wallet',
+                status: 'active',
                 sender: {
-                    id: hasSender._id.toString(),
-                    number: hasSender.phoneNumber,
+                    id: sender._id.toString(),
+                    number: sender.phoneNumber,
                     sum,
                     currency
                 },
                 receiver: {
-                    id: hasReceiver._id.toString(),
-                    number: hasReceiver.phoneNumber
+                    id: receiver._id.toString(),
+                    number: receiver.phoneNumber
                 },
             }
             if (comment) request.comment = comment
 
             Transaction.add(request)
-                .then(docRef => console.log(docRef.id))
+                .then(docRef => console.log('created bill id: ', docRef.id))
                 .catch(e => console.log(e.message))
 
             // TODO: add pushNotification
-            // return res.status(200).json({
-            //     message: 'счет успешно выставлен',
-            //     status: 'success',
-            // })
+            return res.status(200).json({
+                message: 'счет успешно выставлен',
+                status: 'success',
+            })
 
         } catch (e) {
             console.log(e);
@@ -86,69 +97,80 @@ router.post(
         try {
             console.log('currencyСonversion with value ', req.body);
 
-            const { id, rate, sum } = req.body
-            let { recipient, donor } = req.body
+            const { CurrencyAccounts, Transaction } = req.firestore
+            const { idUser, phoneNumber, rate } = req.body
+            let { recipient, donor, sum } = req.body
+            sum = Number(sum)
 
-            const hasUser = await User.findOne({ _id: id })
-            if (hasUser === null) {
-                return res.status(400).json({
-                    message: 'пользователь не существует'
-                })
-            }
+            let hasRecipient, hasDonor = null
 
-            const hasRecipient = await Currency.findOne({
-                $and: [
-                    { ownerId: id },
-                    { type: recipient }
-                ]
-            })
-            const hasDonor = await Currency.findOne({
-                $and: [
-                    { ownerId: id },
-                    { type: donor }
-                ]
-            })
-            if (!(hasDonor && hasRecipient)) {
-                return res.status(400).json({
-                    message: 'счета отсутствуют'
-                })
-            }
+            await CurrencyAccounts
+                .where('ownerId', '==', idUser)
+                .where('type', '==', recipient)
+                .get()
+
+                .then(snapshot => snapshot
+                    .forEach(document => {
+                        hasRecipient = {
+                            ...document.data(),
+                            _id: document.id
+                        }
+                    }))
+
+            await CurrencyAccounts
+                .where('ownerId', '==', idUser)
+                .where('type', '==', donor)
+                .get()
+
+                .then(snapshot => snapshot
+                    .forEach(document => {
+                        hasDonor = {
+                            ...document.data(),
+                            _id: document.id
+                        }
+                    }))
 
             const dif = sum * rate
             hasRecipient.count += sum
             hasDonor.count -= dif
+
             if (hasDonor.count <= 0) {
                 return res.status(400).json({
                     message: 'недостаточно средств на счету'
                 })
             }
             else {
-                await hasDonor.save()
-                await hasRecipient.save()
-
-                const moneyRequst = new Request({
-                    type: 'Wallet (конвертация)',
-                    sender: {
-                        id: hasUser._id,
-                        number: hasUser.phoneNumber,
-                        currency: recipient,
-                        sum,
-                    },
-                    receiver: {
-                        id: hasUser._id,
-                        number: hasUser.phoneNumber,
-                        sum: dif,
-                        currency: donor,
-                    },
-                    status: 'success',
-                    paymentDate: Date.now()
+                CurrencyAccounts.doc(hasDonor._id).update({
+                    count: hasDonor.count
                 })
-                await moneyRequst.save()
+                CurrencyAccounts.doc(hasRecipient._id).update({
+                    count: hasRecipient.count
+                })
             }
+
+            const request = {
+                type: 'Wallet (конвертация)',
+                sender: {
+                    id: idUser,
+                    number: phoneNumber,
+                    currency: recipient,
+                    sum,
+                },
+                receiver: {
+                    id: idUser,
+                    number: phoneNumber,
+                    sum: dif,
+                    currency: donor,
+                },
+                status: 'success',
+                registerDate: Date.now(),
+                paymentDate: Date.now()
+            }
+            await Transaction.add(request)
+
             return res.status(200).json({
                 message: 'перевод успешно выполнен'
             })
-
 
         } catch (e) {
             console.log(e);
@@ -163,55 +185,96 @@ router.post(
         try {
             console.log('billPayment with ', req.body);
             const { idUser, idBill, currencyType, rate } = req.body
+            const { Transaction, CurrencyAccounts } = req.firestore
 
-            const bill = await Request.findById(idBill)
+            let bill = null
+            await Transaction
+                .doc(idBill).get()
+                .then(document => {
+                    bill = {
+                        ...document.data(),
+                        _id: document.id
+                    }
+                })
 
-            if (
-                bill == null ||
-                bill.receiver.id !== idUser
-            )
+            if (bill == null)
                 return res.status(404).json({
                     message: 'счет не найден'
                 })
-
             if (bill.status != 'active') return res.status(202).json({
                 message: 'счет уже оплачен'
             })
 
-            const currency = await Currency.findOne({
-                $and: [
-                    { ownerId: idUser },
-                    { type: currencyType }
-                ]
-            })
-            if (currency == null) {
+            let recipient, donor = null
+
+            await CurrencyAccounts
+                .where('ownerId', '==', bill.receiver.id)
+                .where('type', '==', currencyType)
+                .get()
+
+                .then(snapshot => snapshot
+                    .forEach(document => {
+                        donor = {
+                            ...document.data(),
+                            _id: document.id
+                        }
+                    }))
+
+            await CurrencyAccounts
+                .where('ownerId', '==', bill.sender.id)
+                .where('type', '==', bill.sender.currency)
+                .get()
+
+                .then(snapshot => snapshot
+                    .forEach(document => {
+                        recipient = {
+                            ...document.data(),
+                            _id: document.id
+                        }
+                    }))
+
+            if (!(recipient && donor)) {
                 return res.status(500).json({
                     message: 'что-то пошло не так'
                 })
             }
 
-            if (currency.type == bill.sender.currency) {
-                if (currency.count < bill.sender.sum) return res.status(500).json({
+            if (donor.type == bill.sender.currency) {
+                if (donor.count < bill.sender.sum) {
+                    return res.status(500).json({
+                        message: 'недостаточно средств на счету'
+                    })
+                }
+                else {
+                    donor.count -= bill.sender.sum
+                    bill.receiver.sum = bill.sender.sum
+                }
+            } else if (donor.count < (bill.sender.sum * rate)) {
+                return res.status(500).json({
                     message: 'недостаточно средств на счету'
                 })
-            } else if (currency.count < (bill.sender.sum * rate)) {
-
-            }
-
-            if (bill.sender.currency == currencyType) {
-                currency.count -= bill.sender.sum
-                bill.receiver.sum = bill.sender.sum
             } else {
                 const dif = bill.sender.sum * rate
+                donor.count -= dif
                 bill.receiver.sum = dif
             }
 
+            recipient.count += bill.sender.sum
             bill.status = 'success'
             bill.receiver.currency = currencyType
             bill.paymentDate = Date.now()
 
-            await currency.save()
-            await bill.save()
+            await CurrencyAccounts.doc(donor._id).update({
+                count: donor.count
+            })
+            await CurrencyAccounts.doc(recipient._id).update({
+                count: recipient.count
+            })
+
+            delete bill['_id']
+            await Transaction.doc(idBill).set({
+                ...bill
+            })
 
             return res.status(200).json({
                 message: 'счет успешно оплачен'
@@ -228,21 +291,27 @@ router.post(
     async (req, res) => {
         try {
             console.log('rejectBill with ', req.body);
+
+            const { Transaction } = req.firestore
             const { idUser, idBill } = req.body
 
-            const bill = await Request.findById(idBill)
+            const billRef = await Transaction.doc(idBill).get()
 
-            if (
-                bill == null ||
-                bill.receiver.id !== idUser
-            ) return res.status(404).json({
-                message: 'счет не найден'
-            })
+            const bill = billRef.data()
+            if (bill == null ||
+                bill.receiver.id !== idUser) {
+                return res.status(404).json({
+                    message: 'счет не найден'
+                })
+            }
 
             bill.status = 'rejected'
             bill.paymentDate = Date.now()
 
-            await bill.save()
+            await Transaction.doc(idBill).update({
+                status: bill.status,
+                paymentDate: bill.paymentDate
+            })
 
             return res.status(200).json({
                 message: 'счет отклонен'
@@ -250,6 +319,9 @@ router.post(
 
         } catch (e) {
             console.log(e.message);
+            return res.status(500).json({
+                message: 'что-то пошло не так...'
+            })
         }
     }
 )
