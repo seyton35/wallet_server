@@ -12,7 +12,7 @@ router.post(
         try {
             console.log('ClientMoneyRequest with value ', req.body);
             const { errors } = validationResult(req)
-            const { Transaction, Users } = req.firestore
+            const { Transaction, Users, messaging } = req.firestore
 
             if (errors.length) {
                 return res.status(400).json({
@@ -25,7 +25,7 @@ router.post(
             sum = Number(sum)
             const regx = /\D/
             receiverNumber = Number(receiverNumber.replace(regx, ''))
-
+            
             if (receiverNumber == senderNumber) {
                 return res.status(400).json({
                     message: 'это ваш номер'
@@ -74,11 +74,24 @@ router.post(
             }
             if (comment) request.comment = comment
 
-            Transaction.add(request)
-                .then(docRef => console.log('created bill id: ', docRef.id))
+            await Transaction.add(request)
+                .then(docRef => request._id = docRef.id)
                 .catch(e => console.log(e.message))
 
-            // TODO: add pushNotification
+            messaging.sendToDevice(
+                receiver.tokens,
+                {
+                    data: {
+                        data: JSON.stringify({ bill: request }),
+                        screen: 'billPayment',
+                        navigation: 'true'
+                    },
+                    notification: {
+                        title: 'вам выставлен счет',
+                        body: `${request.type} ${request.sender.sum} ${request.sender.currency}`,
+                    }
+                }
+            )
             return res.status(200).json({
                 message: 'счет успешно выставлен',
                 status: 'success',

@@ -5,7 +5,7 @@ const { Server } = require('socket.io')
 
 const io = new Server(server)
 
-const admin = require('firebase-admin');
+const admin = require('firebase-admin')
 const serviceAccount = require('./config/firebase_key/serviceAccountKey.json')
 
 const config = require('config')
@@ -36,6 +36,7 @@ app.use((req, res, next) => {
         CurrencyAccounts: firestore.collection("currencyAccounts"),
         Users: firestore.collection("users")
     }
+    req.firestore.messaging = admin.messaging()
     return next()
 })
 

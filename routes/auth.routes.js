@@ -39,7 +39,8 @@ router.post(
             const hash = await bcrypt.hash(password, 12)
             const user = await Users.add({
                 phoneNumber,
-                password: hash
+                password: hash,
+                tokens: []
             })
             const accountRub = await CurrencyAccounts.add({
                 ownerId: user.id,
@@ -47,14 +48,14 @@ router.post(
                 count: 0,
                 registerDate: Date.now(),
             })
-            const accountUsd = await CurrencyAccounts.add({
+            const accountKzt = await CurrencyAccounts.add({
                 ownerId: user.id,
                 type: 'KZT',
                 count: 0,
                 registerDate: Date.now()
             })
 
-            if (user.id && accountRub.id && accountUsd.id) {
+            if (user.id && accountRub.id && accountKzt.id) {
                 return res.status(200).json({
                     id: user.id,
                     phoneNumber,
@@ -124,6 +125,63 @@ router.post(
                     }
 
                 })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
+router.post(
+    '/saveNotificationToken',
+    async (req, res) => {
+        console.log('saveNotificationToken with :', req.body);
+        try {
+            const { Users } = req.firestore
+            const { idUser, token } = req.body
+
+            const userRef = await Users.doc(idUser).get()
+            const user = userRef.data()
+
+            if (!user.tokens.includes(token)) {
+                user.tokens.push(token)
+                await Users.doc(idUser).set(user)
+            }
+            console.log('token saved');
+            return res.status(200).json({
+                message: 'token saved'
+            })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+router.post(
+    '/deleteNotificationToken',
+    async (req, res) => {
+        console.log('deleteNotificationToken with :', req.body);
+        try {
+            const { Users } = req.firestore
+            const { idUser, token } = req.body
+
+            const userRef = await Users.doc(idUser).get()
+            const user = userRef.data()
+            console.log(user.tokens);
+            const index = user.tokens.indexOf(token)
+            console.log(index);
+            if (index >= 0) {
+                user.tokens.splice(index, 1)
+                console.log(user.tokens);
+            }
+            await Users.doc(idUser).set(user)
+
+            console.log('token deleted');
+            return res.status(200).json({
+                message: 'token deleted'
+            })
 
         } catch (e) {
             console.log(e);
