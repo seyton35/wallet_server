@@ -1,9 +1,9 @@
 const express = require('express')
 const app = express()
 const server = require('http').createServer(app)
-const { Server } = require('socket.io')
+// const { Server } = require('socket.io')
 
-const io = new Server(server)
+// const io = new Server(server)
 
 const admin = require('firebase-admin')
 const serviceAccount = require('./config/firebase_key/serviceAccountKey.json')
@@ -19,10 +19,10 @@ const SocketReducer = require('./socket/SocketReducer.js')
 const PORT = config.get('port') || 5000
 
 app.use(express.json())
-app.use((req, res, next) => {
-    req.io = io
-    return next()
-})
+// app.use((req, res, next) => {
+//     req.io = io
+//     return next()
+// })
 
 
 
