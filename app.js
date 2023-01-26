@@ -48,7 +48,7 @@ app.use('/api/auth', auth)
 app.use('/api/transaction', transaction)
 app.use('/api/dataBase', dataBase)
 
-app.post('/', (req, res) => {
+app.get('/', (req, res) => {
     try {
         res.json({
             message: 'from .../'
