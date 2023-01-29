@@ -27,11 +27,6 @@ app.use((req, res, next) => {
         Users: firestore.collection("users")
     }
     req.firestore.messaging = admin.messaging()
-    firestore.collection("users").get()
-    .then(docRefs=>
-        docRefs.forEach(docRef=>console.log(docRef.data()))
-        )
-        .catch(e=>console.log(e.message))
     return next()
 })
 
