@@ -31,6 +31,7 @@ app.use((req, res, next) => {
     .then(docRefs=>
         docRefs.forEach(docRef=>console.log(docRef.data()))
         )
+        .catch(e=>console.log(e.message))
     return next()
 })
 
@@ -48,9 +49,19 @@ app.get('/', (req, res) => {
         console.log(e);
     }
 })
+app.post('/', (req, res) => {
+    try {
+        res.json({
+            message: 'from .../'
+        })
+    } catch (e) {
+        console.log(e);
+    }
+})
 
 async function start() {
     try {
+        console.log();
         server.listen(PORT, () => console.log(`App has been started on port ${PORT}`))
     } catch (e) {
         console.log("Server error:", e.message);
