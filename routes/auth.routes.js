@@ -144,7 +144,12 @@ router.post(
             const userRef = await Users.doc(idUser).get()
             const user = userRef.data()
 
-            if (!user.tokens.includes(token)) {
+            if (!user.tokens) {
+                user.tokens = []
+                user.tokens.push(token)
+                await Users.doc(idUser).set(user)
+            }
+            else if (!user.tokens.includes(token)) {
                 user.tokens.push(token)
                 await Users.doc(idUser).set(user)
             }
