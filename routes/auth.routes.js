@@ -12,7 +12,7 @@ router.post(
         try {
             console.log('reg with value ', req.body);
 
-            const { Users, CurrencyAccounts } = req.firestore
+            const { Users, CurrencyAccounts, UserConfig } = req.firestore
 
             const errors = validationResult(req)
             if (!errors.isEmpty()) {
@@ -42,23 +42,21 @@ router.post(
                 password: hash,
                 tokens: []
             })
-            const accountRub = await CurrencyAccounts.add({
+            const currencyAccountRub = await CurrencyAccounts.add({
                 ownerId: user.id,
                 type: 'RUB',
                 count: 0,
                 registerDate: Date.now(),
             })
-            const accountKzt = await CurrencyAccounts.add({
-                ownerId: user.id,
-                type: 'KZT',
-                count: 0,
-                registerDate: Date.now()
-            })
+            const defaultCurrencyAccount = 'RUB'
+            const userConfig = await UserConfig.doc(user.id).set({ defaultCurrencyAccount })
+            console.log(userConfig);
 
-            if (user.id && accountRub.id && accountKzt.id) {
+            if (user.id && currencyAccountRub.id && userConfig) {
                 return res.status(200).json({
                     id: user.id,
                     phoneNumber,
+                    defaultCurrencyAccount,
                     message: 'пользлватель создан'
                 })
             } else return res.status(500).json({ message: 'что-то пошло не так' })

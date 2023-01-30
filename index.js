@@ -24,7 +24,8 @@ app.use((req, res, next) => {
     req.firestore = {
         Transaction: firestore.collection("transactions"),
         CurrencyAccounts: firestore.collection("currencyAccounts"),
-        Users: firestore.collection("users")
+        Users: firestore.collection("users"),
+        UserConfig: firestore.collection("userConfig")
     }
     req.firestore.messaging = admin.messaging()
     return next()
