@@ -206,4 +206,29 @@ router.post(
     }
 )
 
+router.post(
+    '/fetchAvailableCurrencies',
+    async (req, res) => {
+        console.log('fetchAvailableCurrencies with :', req.body);
+        try {
+            const { WalletConfig } = req.firestore
+            const resRef = await WalletConfig.doc('availableCurrencies').get()
+            if (resRef != null) {
+                const availableCurrencies = resRef.data().arr
+                return res.status(200).json({
+                    message: 'success',
+                    availableCurrencies
+                })
+            }else{
+                throw new Error('не найден документ в БД')
+            }
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
+
+
 module.exports = router

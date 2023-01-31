@@ -11,6 +11,7 @@ const config = require('config')
 const auth = require('./routes/auth.routes')
 const transaction = require('./routes/transaction.routes')
 const dataBase = require('./routes/dataBase.routes')
+const operationsOnUserConfig = require('./routes/operationsOnUserConfig.routes')
 
 const PORT = config.get('port') || 5000
 
@@ -25,7 +26,8 @@ app.use((req, res, next) => {
         Transaction: firestore.collection("transactions"),
         CurrencyAccounts: firestore.collection("currencyAccounts"),
         Users: firestore.collection("users"),
-        UserConfig: firestore.collection("userConfig")
+        UserConfig: firestore.collection("userConfig"),
+        WalletConfig: firestore.collection("walletConfig")
     }
     req.firestore.messaging = admin.messaging()
     return next()
@@ -35,6 +37,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', auth)
 app.use('/api/transaction', transaction)
 app.use('/api/dataBase', dataBase)
+app.use('/api/operationsOnUserConfig', operationsOnUserConfig)
 
 app.get('/', (req, res) => {
     try {
