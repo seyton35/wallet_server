@@ -12,6 +12,7 @@ const auth = require('./routes/auth.routes')
 const transaction = require('./routes/transaction.routes')
 const dataBase = require('./routes/dataBase.routes')
 const operationsOnUserConfig = require('./routes/operationsOnUserConfig.routes')
+const operationsOnCurrencyAccounts = require('./routes/operationsOnCurrencyAccounts.routes')
 
 const PORT = config.get('port') || 5000
 
@@ -38,6 +39,7 @@ app.use('/api/auth', auth)
 app.use('/api/transaction', transaction)
 app.use('/api/dataBase', dataBase)
 app.use('/api/operationsOnUserConfig', operationsOnUserConfig)
+app.use('/api/operationsOnCurrencyAccounts', operationsOnCurrencyAccounts)
 
 app.get('/', (req, res) => {
     try {
