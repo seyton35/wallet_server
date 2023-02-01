@@ -1,9 +1,9 @@
 const router = require('express').Router()
 
 router.post(
-    '/openAnAccount',
+    '/openCurrencyAccount',
     async (req, res) => {
-        console.log('openAnAccount with :', req.body);
+        console.log('openCurrencyAccount with :', req.body);
         try {
             const { CurrencyAccounts } = req.firestore
             const { idUser, currency } = req.body
@@ -18,7 +18,6 @@ router.post(
             if (currencyAccount.id != null) {
                 return res.status(200).json({
                     message: 'success',
-                    currencyesArr
                 })
             }else throw new Error('счет не открыт!')
 
