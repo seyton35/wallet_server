@@ -22,4 +22,26 @@ router.post(
     }
 )
 
+router.post(
+    '/postPushNotificationSettings',
+    async (req, res) => {
+        console.log('postPushNotificationSettings with :', req.body);
+        try {
+            const { UserConfig } = req.firestore
+            const { pushNotificationSettings, idUser } = req.body
+
+            await UserConfig.doc(idUser).update({
+                pushNotificationSettings: pushNotificationSettings
+            })
+            res.status(200).json({
+                message: 'success'
+            })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
 module.exports = router
