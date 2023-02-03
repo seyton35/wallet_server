@@ -219,8 +219,8 @@ router.post(
                     message: 'success',
                     availableCurrencies
                 })
-            }else{
-                throw new Error('не найден документ в БД')
+            } else {
+                throw new Error('availableCurrencies не найден в БД')
             }
         } catch (e) {
             console.log(e);
@@ -229,6 +229,28 @@ router.post(
     }
 )
 
-
+router.post(
+    '/fetchUserConfig',
+    async (req, res) => {
+        console.log('fetchUserConfig with :', req.body);
+        try {
+            const { idUser } = req.body
+            const { UserConfig } = req.firestore
+            const configRef = await UserConfig.doc(idUser).get()
+            if (configRef != null) {
+                const config = configRef.data()
+                return res.status(200).json({
+                    message: 'success',
+                    config
+                })
+            } else {
+                throw new Error('config не найден в БД')
+            }
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
 
 module.exports = router
