@@ -49,7 +49,15 @@ router.post(
                 registerDate: Date.now(),
             })
             const defaultCurrencyAccount = 'RUB'
-            const userConfig = await UserConfig.doc(user.id).set({ defaultCurrencyAccount })
+            const userConfig = await UserConfig.doc(user.id).set({
+                defaultCurrencyAccount,
+                pushNotificationSettings: {
+                    incomingBill: true,
+                    promotions: true,
+                    refill: true,
+                    writeOff: true
+                }
+            })
             console.log(userConfig);
 
             if (user.id && currencyAccountRub.id && userConfig) {

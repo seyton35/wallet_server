@@ -12,7 +12,7 @@ router.post(
         try {
             console.log('ClientMoneyRequest with value ', req.body);
             const { errors } = validationResult(req)
-            const { Transaction, Users, messaging } = req.firestore
+            const { Transaction, Users, UserConfig, messaging } = req.firestore
 
             if (errors.length) {
                 return res.status(400).json({
@@ -25,7 +25,7 @@ router.post(
             sum = Number(sum)
             const regx = /\D/
             receiverNumber = Number(receiverNumber.replace(regx, ''))
-            
+
             if (receiverNumber == senderNumber) {
                 return res.status(400).json({
                     message: 'это ваш номер'
@@ -78,20 +78,25 @@ router.post(
                 .then(docRef => request._id = docRef.id)
                 .catch(e => console.log(e.message))
 
-            messaging.sendToDevice(
-                receiver.tokens,
-                {
-                    data: {
-                        data: JSON.stringify({ bill: request }),
-                        screen: 'billPayment',
-                        navigation: 'true'
-                    },
-                    notification: {
-                        title: 'вам выставлен счет',
-                        body: `${request.type} ${request.sender.sum} ${request.sender.currency}`,
-                    }
-                }
-            )
+            await UserConfig.doc(receiver._id).get()
+                .then(docRef => {
+                    const doc = docRef.data()
+                    if (doc.pushNotificationSettings.incomingBill)
+                        messaging.sendToDevice(
+                            receiver.tokens,
+                            {
+                                data: {
+                                    data: JSON.stringify({ bill: request }),
+                                    screen: 'billPayment',
+                                    navigation: 'true'
+                                },
+                                notification: {
+                                    title: 'вам выставлен счет',
+                                    body: `${request.type} ${request.sender.sum} ${request.sender.currency}`,
+                                }
+                            }
+                        )
+                })
             return res.status(200).json({
                 message: 'счет успешно выставлен',
                 status: 'success',
@@ -198,7 +203,7 @@ router.post(
         try {
             console.log('billPayment with ', req.body);
             const { idUser, idBill, currencyType, rate } = req.body
-            const { Transaction, CurrencyAccounts } = req.firestore
+            const { Transaction, CurrencyAccounts, Users, UserConfig, messaging } = req.firestore
 
             let bill = null
             await Transaction
@@ -284,10 +289,56 @@ router.post(
                 count: recipient.count
             })
 
+
             delete bill['_id']
             await Transaction.doc(idBill).set({
                 ...bill
             })
+                .then(async () => {
+                    await UserConfig.doc(bill.receiver.id).get()
+                        .then(async docRef => {
+                            const userRef = await Users.doc(bill.receiver.id).get()
+                            const { tokens } = userRef.data()
+                            const doc = docRef.data()
+                            if (doc.pushNotificationSettings.writeOff)
+                                messaging.sendToDevice(
+                                    tokens,
+                                    {
+                                        data: {
+                                            data: JSON.stringify({}),
+                                            screen: 'history',
+                                            navigation: 'true'
+                                        },
+                                        notification: {
+                                            title: 'Wallet',
+                                            body: `${bill.type} \u2014 ${bill.receiver.sum} ${bill.receiver.currency}`,
+                                        }
+                                    }
+                                )
+                        })
+                    await UserConfig.doc(bill.sender.id).get()
+                        .then(async docRef => {
+                            const userRef = await Users.doc(bill.sender.id).get()
+                            const { tokens } = userRef.data()
+                            const doc = docRef.data()
+                            if (doc.pushNotificationSettings.refill)
+                                messaging.sendToDevice(
+                                    tokens,
+                                    {
+                                        data: {
+                                            data: JSON.stringify({}),
+                                            screen: 'history',
+                                            navigation: 'true'
+                                        },
+                                        notification: {
+                                            title: 'Wallet',
+                                            body: `зачисленно \u2014 ${bill.sender.sum} ${bill.sender.currency}`,
+                                        }
+                                    }
+                                )
+                        })
+                })
+                .catch(e => console.log(e.message))
 
             return res.status(200).json({
                 message: 'счет успешно оплачен'
