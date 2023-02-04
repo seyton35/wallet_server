@@ -29,19 +29,14 @@ router.post(
                 })
                 .catch(e => console.log(e.message))
 
-            if (activeBills.length == 0) {
-                return res.status(204).json({
-                    message: 'неоплаченных счетов нет'
-                })
-            } else {
-                return res.status(200).json({
-                    message: 'success',
-                    activeBills
-                })
-            }
+            return res.status(200).json({
+                message: 'success',
+                activeBills
+            })
+
 
         } catch (e) {
-            console.log(e);
+            console.log(e.message);
             res.status(500).json({ message: 'что-то пошло не так' })
         }
     }
