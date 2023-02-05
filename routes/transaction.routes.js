@@ -81,7 +81,7 @@ router.post(
             await UserConfig.doc(receiver._id).get()
                 .then(docRef => {
                     const doc = docRef.data()
-                    if (doc.pushNotificationSettings.incomingBill)
+                    if (doc.pushNotificationSettings.incomingBill && receiver.tokens.length != 0)
                         messaging.sendToDevice(
                             receiver.tokens,
                             {
@@ -300,7 +300,7 @@ router.post(
                             const userRef = await Users.doc(bill.receiver.id).get()
                             const { tokens } = userRef.data()
                             const doc = docRef.data()
-                            if (doc.pushNotificationSettings.writeOff)
+                            if (doc.pushNotificationSettings.writeOff && tokens.length != 0)
                                 messaging.sendToDevice(
                                     tokens,
                                     {
@@ -321,7 +321,7 @@ router.post(
                             const userRef = await Users.doc(bill.sender.id).get()
                             const { tokens } = userRef.data()
                             const doc = docRef.data()
-                            if (doc.pushNotificationSettings.refill)
+                            if (doc.pushNotificationSettings.refill && tokens.length != 0)
                                 messaging.sendToDevice(
                                     tokens,
                                     {

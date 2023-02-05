@@ -170,6 +170,7 @@ router.post(
         }
     }
 )
+
 router.post(
     '/deleteNotificationToken',
     async (req, res) => {
@@ -192,6 +193,62 @@ router.post(
             console.log('token deleted');
             return res.status(200).json({
                 message: 'token deleted'
+            })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
+router.post(
+    '/deleteAccount',
+    async (req, res) => {
+        console.log('deleteAccount with :', req.body);
+        try {
+            const { Users, DeletedUsers, UserConfig, CurrencyAccounts, Transaction } = req.firestore
+            const { idUser } = req.body
+
+            const userRef = await Users.doc(idUser).get()
+            const user = userRef.data()
+            user.tokens = []
+            await DeletedUsers.doc(idUser).set(user)
+            await CurrencyAccounts.where('ownerId', '==', idUser).get()
+                .then(docsRef => {
+                    docsRef.forEach(docRef => {
+                        docRef.ref.delete()
+                    });
+                })
+            await Transaction
+                .where('sender.id', '==', idUser)
+                .where('status', '==', 'active')
+                .get()
+                .then(docsRef => {
+                    docsRef.forEach(docRef => {
+                        docRef.ref.update({
+                            status: 'rejected'
+                        })
+                    });
+                })
+            await Transaction
+                .where('receiver.id', '==', idUser)
+                .where('status', '==', 'active')
+                .get()
+                .then(docsRef => {
+                    docsRef.forEach(docRef => {
+                        docRef.ref.update({
+                            status: 'rejected'
+                        })
+                    });
+                })
+
+            await Users.doc(idUser).delete()
+            await UserConfig.doc(idUser).delete()
+
+            console.log('user deleted');
+            return res.status(200).json({
+                message: 'user deleted'
             })
 
         } catch (e) {
