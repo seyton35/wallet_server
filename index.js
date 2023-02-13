@@ -1,12 +1,20 @@
 const express = require('express')
 const app = express()
-const server = require('http').createServer(app)
+const http = require('http')
+const server = http.createServer(app)
 
+const https = require('https')
+const fs = require('fs')
+const httpsServer = https.createServer({
+    key: fs.readFileSync('/etc/letsencrypt/live/1220295-cj30407.tw1.ru/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/1220295-cj30407.tw1.ru/fullchain.pem'),
+}, app)
 
 const admin = require('firebase-admin')
 const serviceAccount = require('./config/firebase_key/serviceAccountKey.json')
 
 const config = require('config')
+const PORT = config.get('port') || 5000
 
 const auth = require('./routes/auth.routes')
 const transaction = require('./routes/transaction.routes')
@@ -14,7 +22,6 @@ const dataBase = require('./routes/dataBase.routes')
 const operationsOnUserConfig = require('./routes/operationsOnUserConfig.routes')
 const operationsOnCurrencyAccounts = require('./routes/operationsOnCurrencyAccounts.routes')
 
-const PORT = config.get('port') || 5000
 
 app.use(express.json())
 
@@ -65,6 +72,7 @@ async function start() {
     try {
         console.log();
         server.listen(PORT, () => console.log(`App has been started on port ${PORT}`))
+        httpsServer.listen(443, () => { console.log('HTTPS Server running on port 443') });
     } catch (e) {
         console.log("Server error:", e.message);
         process.exit()
