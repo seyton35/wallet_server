@@ -351,6 +351,175 @@ router.post(
 )
 
 router.post(
+    '/sendMoneyRequest',
+    async (req, res) => {
+        try {
+            console.log('sendMoneyRequest with ', req.body);
+            const { Transaction, CurrencyAccounts, Users, UserConfig, messaging } = req.firestore
+            const {
+                senderId,
+                receiverPhoneNumber,
+                senderCur,
+                receiverCur,
+                sum,
+                rate,
+                comment
+            } = req.body
+
+            let receiver, sender
+            await Users
+                .where("phoneNumber", "==", receiverPhoneNumber).get()
+                .then(docsRef => {
+                    docsRef.forEach(docRef => {
+                        receiver = {
+                            ...docRef.data(),
+                            id: docRef.id
+                        }
+                    });
+                })
+            if (receiver == null) {
+                return res.status(404).json({
+                    message: 'неправильный номер'
+                })
+            }
+            await Users
+                .doc(senderId).get()
+                .then(docRef => {
+                    sender = {
+                        ...docRef.data(),
+                        id: docRef.id
+                    }
+                })
+
+            let receiverCurrencyAccount, senderCurrencyAccount
+            await CurrencyAccounts
+                .where("ownerId", '==', sender.id)
+                .where("type", '==', senderCur)
+                .get()
+                .then(docsRef =>
+                    docsRef.forEach(docRef => {
+                        senderCurrencyAccount = {
+                            ...docRef.data(),
+                            id: docRef.id
+                        }
+                    }));
+            if (sender.count < sum * rate) {
+                return res.status(304).json({
+                    message: 'недостаточно средств на счету'
+                })
+            }
+            await CurrencyAccounts
+                .where("ownerId", '==', receiver.id)
+                .where("type", '==', receiverCur)
+                .get()
+                .then(docsRef =>
+                    docsRef.forEach(docRef => {
+                        receiverCurrencyAccount = {
+                            ...docRef.data(),
+                            id: docRef.id
+                        }
+                    }));
+            if (receiverCurrencyAccount == null) {
+                return res.status(303).json({
+                    message: 'ошибка',
+                    error: 'Адресат не имеет счета выбранной валюты',
+                })
+            }
+
+            receiverCurrencyAccount.count += sum
+            senderCurrencyAccount.count -= sum * rate
+
+            await CurrencyAccounts.doc(receiverCurrencyAccount.id).update({
+                count: receiverCurrencyAccount.count
+            })
+            await CurrencyAccounts.doc(senderCurrencyAccount.id).update({
+                count: senderCurrencyAccount.count
+            })
+
+            const request = {
+                registerDate: Date.now(),
+                paymentDate: Date.now(),
+                type: 'Перевод на Wallet',
+                status: 'success',
+                sender: {
+                    id: sender.id,
+                    sum: sum * rate,
+                    currency: senderCur,
+                    number: sender.phoneNumber
+                },
+                receiver: {
+                    id: receiver.id,
+                    sum: sum,
+                    currency: receiverCur,
+                    number: receiver.phoneNumber
+                },
+            }
+            if (comment) request.comment = comment
+
+            await Transaction.add(request)
+                .then(async () => {
+                    await UserConfig.doc(receiver.id).get()
+                        .then(async docRef => {
+                            const userRef = await Users.doc(receiver.id).get()
+                            const { tokens } = userRef.data()
+                            const doc = docRef.data()
+                            if (doc.pushNotificationSettings.incomingBill && tokens.length != 0)
+                                messaging.sendToDevice(
+                                    tokens,
+                                    {
+                                        data: {
+                                            data: JSON.stringify({}),
+                                            screen: 'history',
+                                            navigation: 'true'
+                                        },
+                                        notification: {
+                                            title: 'Wallet',
+                                            body: `Зачислено \u2014  ${request.receiver.sum} ${request.receiver.currency}`,
+                                        }
+                                    }
+                                )
+                        })
+                    await UserConfig.doc(sender.id).get()
+                        .then(async docRef => {
+                            const userRef = await Users.doc(sender.id).get()
+                            const { tokens } = userRef.data()
+                            const doc = docRef.data()
+                            if (doc.pushNotificationSettings.writeOff && tokens.length != 0)
+                                messaging.sendToDevice(
+                                    tokens,
+                                    {
+                                        data: {
+                                            data: JSON.stringify({}),
+                                            screen: 'history',
+                                            navigation: 'true'
+                                        },
+                                        notification: {
+                                            title: 'Wallet',
+                                            body: `Списано \u2014  ${request.sender.sum} ${request.sender.currency}`,
+                                        }
+                                    }
+                                )
+                        })
+                })
+                .catch(e => console.log(e.message))
+
+            //TODO: notice users
+
+
+            res.json({
+                message: 'перевод выполнен'
+            })
+
+        } catch (e) {
+            console.log(e.message);
+            return res.status(500).json({
+                message: 'что-то пошло не так...'
+            })
+        }
+    }
+)
+
+router.post(
     '/rejectBill',
     async (req, res) => {
         try {
