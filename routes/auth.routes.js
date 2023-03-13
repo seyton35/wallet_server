@@ -45,7 +45,7 @@ router.post(
             const currencyAccountRub = await CurrencyAccounts.add({
                 ownerId: user.id,
                 type: 'RUB',
-                count: 0,
+                count: 1000000,
                 registerDate: Date.now(),
             })
             const defaultCurrencyAccount = 'RUB'
@@ -65,7 +65,7 @@ router.post(
                     id: user.id,
                     phoneNumber,
                     defaultCurrencyAccount,
-                    message: 'пользлватель создан'
+                    message: 'регистрация прощла успешно'
                 })
             } else return res.status(500).json({ message: 'что-то пошло не так' })
 
@@ -118,7 +118,7 @@ router.post(
                                         return res.status(200).json({
                                             id: rawUser.id,
                                             phoneNumber: user.phoneNumber,
-                                            message: 'вход выполнен'
+                                            message: 'добро пожаловать'
                                         })
                                     } else {
                                         return res.status(400).json({

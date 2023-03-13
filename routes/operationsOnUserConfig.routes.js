@@ -44,4 +44,27 @@ router.post(
     }
 )
 
+router.post(
+    '/postLanguage',
+    async (req, res) => {
+        console.log('postLanguage with :', req.body);
+        try {
+            const { UserConfig } = req.firestore
+            const { language, idUser } = req.body
+
+            await UserConfig.doc(idUser).update({
+                language: language
+            })
+            console.log('language changed');
+            res.status(300).json({
+                message: 'success'
+            })
+
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({ message: 'что-то пошло не так' })
+        }
+    }
+)
+
 module.exports = router
